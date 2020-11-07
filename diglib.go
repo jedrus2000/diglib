@@ -1,25 +1,53 @@
 package main
 
 import (
-	"github.com/therecipe/qt/core"
-	"github.com/therecipe/qt/uitools"
-	"github.com/therecipe/qt/widgets"
+	"diglib/polona"
+	strg "diglib/storage"
+	"fmt"
+	"github.com/docopt/docopt-go"
 )
 
 func main() {
-	// widgets.NewQApplication(len(os.Args), os.Args)
+	storage := &strg.Storage{}
+	storage.Open()
+	defer storage.Close()
 
-	// MainWindow().Show()
+	usage := `
+digilib
+	
+	Usage:
+	  digilib search [--page-size=<ps>]
+	  digilib dump <output_filename>
+      digilib download [--single=<guid>]
+	  digilib -h | --help
+  	  digilib --version
 
-	// widgets.QApplication_Exec()
+	Options:
+	  --page-size=<ps>  			Page size of results [default: 1000].
+      --single=<guid>				ID (guid) of element.
+	  -h --help                     Show this screen.
+  	  --version                     Show version.	
 
-	Search()
-}
+`
+	arguments, _ := docopt.ParseDoc(usage)
 
-func MainWindow() *widgets.QWidget {
-	file := core.NewQFile2("./resources/main_window.ui")
-	file.Open(core.QIODevice__ReadOnly)
-	formWidget := uitools.NewQUiLoader(nil).Load(file, nil)
+	// fmt.Println(arguments)
 
-	return formWidget
+	if arguments["dump"] == true {
+		filename, _ := arguments.String("<output_filename>")
+		ss := &strg.Spreadsheet{}
+		ss.Open(filename)
+		defer ss.Close()
+		Dump(storage, ss)
+	} else if arguments["search"] == true {
+		pageSize, _ := arguments.Int("--page-size")
+		Search(storage, pageSize)
+	} else if arguments["download"] == true {
+		guid, err := arguments.String("--single")
+		if err == nil {
+			item := storage.Find(guid)
+			fmt.Println(item)
+			polona.DownloadPolona(&item)
+		}
+	}
 }
