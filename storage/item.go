@@ -14,7 +14,7 @@ type Channel struct {
 }
 
 type Item struct {
-	Download             int
+	Download             string
 	LastUpdateDate       string
 	Title                []string `xml:"title"`
 	Link                 string   `xml:"link"`

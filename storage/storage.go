@@ -2,6 +2,7 @@ package storage
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	bolt "go.etcd.io/bbolt"
 )
@@ -39,7 +40,7 @@ func (storage *Storage) Close() {
 	}
 }
 
-func (storage *Storage) InsertItem(item *Item) {
+func (storage *Storage) SaveItem(item *Item) {
 	err := storage.db.Update(func(tx *bolt.Tx) error {
 		b := tx.Bucket([]byte(DEFAULT_COLLECTION_NAME))
 		buf, err := json.Marshal(item)
@@ -54,7 +55,7 @@ func (storage *Storage) InsertItem(item *Item) {
 	}
 }
 
-func (storage *Storage) InsertItems(items *[]Item) {
+func (storage *Storage) SaveItems(items *[]Item) {
 	err := storage.db.Update(func(tx *bolt.Tx) error {
 		b := tx.Bucket([]byte(DEFAULT_COLLECTION_NAME))
 		for _, item := range *items {
@@ -87,21 +88,21 @@ func (storage *Storage) ForEach(fn func(item *Item)) {
 		panic(err)
 	}
 }
-func (storage *Storage) Find(guid string) Item {
+func (storage *Storage) Find(guid string) (Item, error) {
 	var item Item
-	err := storage.db.View(func(tx *bolt.Tx) error {
+	var err error = nil
+	err = storage.db.View(func(tx *bolt.Tx) error {
 		c := tx.Bucket([]byte(DEFAULT_COLLECTION_NAME)).Cursor()
 		k, v := c.Seek([]byte(guid))
-		if k != nil {
+		if (k != nil) && (string(k) == guid) {
 			err := json.Unmarshal(v, &item)
 			if err != nil {
-				panic(err)
+				return err
 			}
+		} else {
+			return errors.New("item not found")
 		}
 		return nil
 	})
-	if err != nil {
-		panic(err)
-	}
-	return item
+	return item, err
 }

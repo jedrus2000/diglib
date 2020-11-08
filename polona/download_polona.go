@@ -3,8 +3,10 @@ package polona
 import (
 	strg "diglib/storage"
 	"encoding/json"
+	"fmt"
 	"github.com/gocolly/colly/v2"
 	"strings"
+	"time"
 )
 
 type Resource struct {
@@ -39,31 +41,46 @@ type PolonaObject struct {
 func DownloadPolona(item *strg.Item) {
 	var resourceId string
 	var polonaObject PolonaObject
-	// var polonaObjectString string
+	item.LastUpdateDate = time.Now().Format("2006-01-02 15:04:05")
+
 	page := colly.NewCollector()
+	jsonResource := colly.NewCollector()
+	imageResource := colly.NewCollector()
+	imageResource.MaxBodySize = 10 * 1024 * 1024 * 1024
 
 	page.OnResponse(func(res *colly.Response) {
 		resourceId = strings.Split(res.Request.URL.Path, ",")[1]
+		jsonResource.Visit("https://polona.pl/api/entities/" + resourceId)
 	})
-	page.Visit(item.Link)
 
-	jsonResource := colly.NewCollector()
 	jsonResource.OnResponse(func(res *colly.Response) {
 		err := json.Unmarshal(res.Body, &polonaObject)
-		// polonaObjectString = fmt.Sprint(res.Body[:])
 		if err != nil {
 			panic(err)
 		}
+		// fmt.Printf("%+v\n", polonaObject) // res.Body[:])
+		item.DataProviderMetaJSON = string(res.Body)
+		fmt.Printf("Downloading %s, %s from %s.\n", item.Guid,
+			polonaObject.Slug, polonaObject.MainScan.Resources[0].Url)
+		imageResource.Visit(polonaObject.MainScan.Resources[0].Url)
 	})
-	jsonResource.Visit("https://polona.pl/api/entities/" + resourceId)
+	// fmt.Printf("%s", "https://polona.pl/api/entities/" + resourceId)
 
-	imageResource := colly.NewCollector()
+	imageResource.OnError(func(res *colly.Response, err error) {
+		var errorStr = fmt.Sprintf("%d %s", res.StatusCode, err.Error())
+		item.Download = errorStr
+		fmt.Printf("Error %s while downloading %s\n", errorStr, res.Request.URL)
+	})
+
 	imageResource.OnResponse(func(res *colly.Response) {
-		err := res.Save("something.jpg")
+		var fileName string = fmt.Sprintf("%s_%s_%s", polonaObject.Slug, item.Guid, res.FileName())
+		err := res.Save(fileName)
 		if err != nil {
 			panic(err)
 		}
+		item.Download = fileName
+		fmt.Printf("Downloaded %s\n", res.Request.URL)
 	})
-	jsonResource.Visit(polonaObject.MainScan.Resources[0].Url)
 
+	page.Visit(item.Link)
 }

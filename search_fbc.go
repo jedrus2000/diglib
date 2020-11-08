@@ -32,13 +32,13 @@ func Search(storage *strg.Storage, pageSize int) {
 
 		for idx, _ := range v.Channels[0].Items {
 			item := &v.Channels[0].Items[idx]
-			item.Download = 0
+			item.Download = "0"
 			item.LastUpdateDate = currentDateTimeString
 			item.DataProviderMetaJSON = ""
 			reduceDuplicateStrings(&item.Title)
 			reduceDuplicateStrings(&item.Type)
 		}
-		storage.InsertItems(&v.Channels[0].Items)
+		storage.SaveItems(&v.Channels[0].Items)
 
 		if v.Channels[0].TotalResults > 0 {
 			totalResults := v.Channels[0].TotalResults
@@ -71,14 +71,14 @@ func Search(storage *strg.Storage, pageSize int) {
 func Dump(storage *strg.Storage, ss *strg.Spreadsheet) {
 	ssRowId := 2
 	ss.SetHeader([]string{"Download", "LastUpdateDate", "Title", "Link", "Guid", "Contributor", "Subject", "Publisher", "Description", "Date",
-		"Type", "Format", "Source", "Language", "Rights", "DataProvider"})
+		"Type", "Format", "Source", "Language", "Rights", "DataProvider", "DataProviderMetaJSON"})
 
 	storage.ForEach(
 		func(item *strg.Item) {
 			ss.SetData(ssRowId, []interface{}{item.Download, item.LastUpdateDate, item.Title, item.Link,
 				item.Guid, item.Contributor, item.Subject,
 				item.Publisher, item.Description, item.Date, item.Type, item.Format, item.Source, item.Language,
-				item.Rights, item.DataProvider})
+				item.Rights, item.DataProvider, item.DataProviderMetaJSON})
 			ssRowId++
 		})
 	// fmt.Printf("%+v \n", item)
