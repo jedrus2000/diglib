@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/docopt/docopt-go"
+	"os"
 )
 
 func main() {
@@ -20,12 +21,13 @@ digilib
 	Usage:
 	  digilib search [--page-size=<value>]
 	  digilib dump <output_filename>
-	  digilib download [--single=<guid>] [--download-indicator=<value>]
+	  digilib download [--single=<guid>] [--download-indicator=<value>] [--output-folder=<value>]
 	  digilib show <item_guid>
 	  digilib -h | --help
   	  digilib --version
 
 	Options:
+	  --output-folder=<value>		  Output folder [default: ./]
 	  --page-size=<value>  			  Page size of results [default: 1000].
       --single=<guid>				  ID (guid) of element.
 	  --download-indicator=<value>    Download indicator [default: 1].
@@ -48,12 +50,14 @@ digilib
 		Search(storage, pageSize)
 	} else if arguments["download"] == true {
 		downloadIndicator, err := arguments.String("--download-indicator")
+		outputFolder, err := arguments.String("--output-folder")
+		os.MkdirAll(outputFolder, os.ModePerm)
 		if err != nil {
 			panic(err)
 		}
 		if guid, err := arguments.String("--single"); err == nil {
 			if item, err := storage.Find(guid); err == nil {
-				if err := downloadItem(&item, downloadIndicator); err == nil {
+				if err := downloadItem(&item, downloadIndicator, outputFolder); err == nil {
 					storage.SaveItem(&item)
 				}
 			} else {
@@ -61,7 +65,7 @@ digilib
 			}
 		} else {
 			storage.ForEach(func(item *strg.Item) {
-				if err := downloadItem(item, downloadIndicator); err == nil {
+				if err := downloadItem(item, downloadIndicator, outputFolder); err == nil {
 					storage.SaveItem(item)
 				}
 			})
@@ -80,14 +84,14 @@ digilib
 	}
 }
 
-func downloadItem(item *strg.Item, downloadIndicator string) error {
+func downloadItem(item *strg.Item, downloadIndicator string, outputFolder string) error {
 	if item.Download != downloadIndicator {
 		fmt.Printf("Item %s download skipped. Download indictator: %s differs.\n", item.Guid, item.Download)
 		return errors.New("download indicator differs")
 	}
 	switch item.DataProvider {
 	case "CBN Polona":
-		polona.DownloadPolona(item)
+		polona.DownloadPolona(item, outputFolder)
 	default:
 		fmt.Printf("Data provider %s not supported.\n", item.DataProvider)
 		return errors.New("data provider not supported")
