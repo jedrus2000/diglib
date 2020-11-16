@@ -14,11 +14,13 @@ func Search(storage *strg.Storage, pageSize int) {
 	startPage := 1
 	// http://fbc.pionier.net.pl/opensearch/search?count=1000&startIndex=1&searchTerms=dc_type%3A(mapa)%20OR%20dc_description%3A(mapa)
 	url := func() string {
-		return "http://fbc.pionier.net.pl/opensearch/search?searchTerms=dc_type%3A(mapa)%20OR%20dc_description%3A(mapa)&count=" +
+		return "http://fbc.pionier.net.pl/opensearch/search?searchTerms=dc_type%3A(mapa)%20OR%20dc_description%3A(mapa)%20OR%20dc_description%3A(plan)&count=" +
 			strconv.Itoa(pageSize) + "&startPage=" + strconv.Itoa(startPage)
 	}
 
 	c := colly.NewCollector()
+	c.SetRequestTimeout(60 * time.Second)
+	c.AllowURLRevisit = true
 
 	c.OnResponse(func(res *colly.Response) {
 		// xml.
@@ -32,13 +34,13 @@ func Search(storage *strg.Storage, pageSize int) {
 
 		for idx, _ := range v.Channels[0].Items {
 			item := &v.Channels[0].Items[idx]
-			item.Download = "0"
+			item.Download = ""
 			item.LastUpdateDate = currentDateTimeString
 			item.DataProviderMetaJSON = ""
 			reduceDuplicateStrings(&item.Title)
 			reduceDuplicateStrings(&item.Type)
 		}
-		storage.SaveItems(&v.Channels[0].Items)
+		storage.SaveItems(&v.Channels[0].Items, false)
 
 		if v.Channels[0].TotalResults > 0 {
 			totalResults := v.Channels[0].TotalResults
@@ -47,12 +49,13 @@ func Search(storage *strg.Storage, pageSize int) {
 				tryNext := 0
 				for {
 					startPage += 1
-					err = c.Visit(url())
-					if err != nil {
+					if err = c.Visit(url()); err != nil {
 						fmt.Printf("Visit error: %v\n", err)
 						tryNext++
+					} else {
+						break
 					}
-					if err == nil || tryNext > 2 {
+					if tryNext > 2 {
 						fmt.Printf("Too much errors. Quits...\n")
 						break
 					}

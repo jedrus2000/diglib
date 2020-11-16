@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 	bolt "go.etcd.io/bbolt"
+	"os"
+	"path/filepath"
 )
 
 const (
@@ -17,7 +19,9 @@ type Storage struct {
 
 func (storage *Storage) Open() {
 	var err error
-	storage.db, err = bolt.Open("diglib.db", 0600, nil)
+	dstPath := filepath.Join("database")
+	os.MkdirAll(dstPath, os.ModePerm)
+	storage.db, err = bolt.Open(filepath.Join(dstPath, "diglib.db"), 0600, nil)
 	if err != nil {
 		panic(err)
 	}
@@ -40,30 +44,40 @@ func (storage *Storage) Close() {
 	}
 }
 
-func (storage *Storage) SaveItem(item *Item) {
+func (storage *Storage) SaveItem(item *Item, overwrite bool) {
 	err := storage.db.Update(func(tx *bolt.Tx) error {
 		b := tx.Bucket([]byte(DEFAULT_COLLECTION_NAME))
-		buf, err := json.Marshal(item)
-		if err != nil {
-			return err
+		if i := b.Get([]byte(item.Guid)); (i == nil) || (overwrite == true) {
+			buf, err := json.Marshal(item)
+			if err != nil {
+				return err
+			}
+			err = b.Put([]byte(item.Guid), buf)
+			if err != nil {
+				return err
+			}
 		}
-		err = b.Put([]byte(item.Guid), buf)
-		return err
+		return nil
 	})
 	if err != nil {
 		panic(err)
 	}
 }
 
-func (storage *Storage) SaveItems(items *[]Item) {
+func (storage *Storage) SaveItems(items *[]Item, overwrite bool) {
 	err := storage.db.Update(func(tx *bolt.Tx) error {
 		b := tx.Bucket([]byte(DEFAULT_COLLECTION_NAME))
 		for _, item := range *items {
-			buf, err := json.Marshal(item)
-			if err != nil {
-				return err
+			if i := b.Get([]byte(item.Guid)); (i == nil) || (overwrite == true) {
+				buf, err := json.Marshal(item)
+				if err != nil {
+					return err
+				}
+				err = b.Put([]byte(item.Guid), buf)
+				if err != nil {
+					return err
+				}
 			}
-			err = b.Put([]byte(item.Guid), buf)
 		}
 		return nil
 	})

@@ -4,10 +4,12 @@ import (
 	"bytes"
 	strg "diglib/storage"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"github.com/gocolly/colly/v2"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"time"
 )
@@ -33,7 +35,8 @@ type PolonaObject struct {
 	DateDescriptive      string      `json:"date_descriptive"`
 	Country              string      `json:"country"`
 	Publisher            string      `json:"publisher"`
-	Imprint              string      `json:"imprint"`
+	Imprint              multiString `json:"imprint"`
+	Series               []string    `json:"series"`                 // "series": [ "Town plans of Poland (Geographical Section. General Staff)" ],
 	PhysicalDescription  multiString `json:"physical_description"`   // "1 mapa : wielobarwna ; 58x72 cm, arkusz 71x84 cm",
 	Categories           []string    `json:"categories"`             // ["maps"],
 	Metatypes            []string    `json:"metatypes"`              // ["mapa ogólnogeograficzna"],
@@ -41,6 +44,28 @@ type PolonaObject struct {
 	CallNo               []string    `json:"call_no"`                // ["ZZK S-31 539 A"],
 	CartographicMathData multiString `json:"cartographic_math_data"` // "Skala 1:1 000 000 (E 20°40'-E 30°50'/ N 57°02'-N 52°00').",
 	Scans                []Scan      `json:"scans"`
+}
+
+func (pol *PolonaObject) GetSygn() string {
+	return strings.ReplaceAll(strings.Join(pol.CallNo, " "), "/", "|")
+}
+
+func (pol *PolonaObject) GetScale() string {
+	re := regexp.MustCompile(`1 ?: ?(?P<scale>[0-9 ]+)`)
+	matches := re.FindStringSubmatch(string(pol.CartographicMathData))
+	if len(matches) > 0 {
+		return strings.ReplaceAll(matches[1], " ", "")
+	}
+
+	return "unknown"
+}
+
+func (pol *PolonaObject) GetSerie() string {
+	if pol.Series != nil {
+		return pol.Series[0]
+	}
+
+	return pol.GetScale()
 }
 
 func (ms *multiString) UnmarshalJSON(data []byte) error {
@@ -63,7 +88,11 @@ func (ms *multiString) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-func DownloadPolona(item *strg.Item, outputFolder string) {
+func DownloadPolona(item *strg.Item, outputFolder string, onlyMetadata bool) error {
+	if onlyMetadata == true && item.DataProviderMetaJSON != "" {
+		return errors.New("metadata already set")
+	}
+
 	var resourceId string
 	var polonaObject PolonaObject
 	item.LastUpdateDate = time.Now().Format("2006-01-02 15:04:05")
@@ -87,23 +116,28 @@ func DownloadPolona(item *strg.Item, outputFolder string) {
 		json.Indent(&prettyJSON, res.Body, "", "  ")
 		item.DataProviderMetaJSON = string(prettyJSON.Bytes())
 		for _, scan := range polonaObject.Scans {
-			scanUrls = append(scanUrls, scan.Resources[0].Url)
+			if len(scan.Resources) > 0 {
+				scanUrls = append(scanUrls, scan.Resources[0].Url)
+			}
 		}
 	})
 	// fmt.Printf("%s", "https://polona.pl/api/entities/" + resourceId)
 
 	page.Visit(item.Link)
 
-	scansFolder := ""
-	if len(scanUrls) > 1 {
-		scansFolder = fmt.Sprintf("%s_%s", polonaObject.Slug, item.Guid)
-		os.MkdirAll(filepath.Join(outputFolder, scansFolder), os.ModePerm)
+	if onlyMetadata == true {
+		fmt.Printf("Metadata downloaded for %s, %s\n", item.Guid, polonaObject.Slug)
+		return nil
 	}
+
+	dstPath := filepath.Join(outputFolder, polonaObject.GetSerie())
+	jsonFileNamePrefix := polonaObject.Slug + "_" + item.Guid
+	os.MkdirAll(dstPath, os.ModePerm)
 	jsonItemBytes, _ := json.MarshalIndent(item, "", "  ")
-	f, _ := os.Create(filepath.Join(outputFolder, scansFolder, item.Guid+".json"))
+	f, _ := os.Create(filepath.Join(dstPath, jsonFileNamePrefix+".json"))
 	f.WriteString(string(jsonItemBytes))
 	f.Close()
-	f, _ = os.Create(filepath.Join(outputFolder, scansFolder, item.Guid+".polona.json"))
+	f, _ = os.Create(filepath.Join(dstPath, jsonFileNamePrefix+".polona.json"))
 	f.WriteString(string(prettyJSON.Bytes()))
 	f.Close()
 
@@ -131,13 +165,9 @@ func DownloadPolona(item *strg.Item, outputFolder string) {
 		})
 
 		imageResource.OnResponse(func(res *colly.Response) {
-			var fileName string
-			if scansFolder != "" {
-				fileName = fmt.Sprintf("%05d%s", i, filepath.Ext(res.FileName()))
-			} else {
-				fileName = fmt.Sprintf("%s_%s_%s", polonaObject.Slug, item.Guid, res.FileName())
-			}
-			fileNameWithPath := filepath.Join(outputFolder, scansFolder, fileName)
+			fileName := fmt.Sprintf("%s_%s_Sygn.%s_%04d%s", polonaObject.Slug, item.Guid, polonaObject.GetSygn(),
+				i, filepath.Ext(res.FileName()))
+			fileNameWithPath := filepath.Join(dstPath, fileName)
 			err := res.Save(fileNameWithPath)
 			if err != nil {
 				panic(err)
@@ -146,7 +176,7 @@ func DownloadPolona(item *strg.Item, outputFolder string) {
 			fmt.Printf("Downloaded %s\n", res.Request.URL)
 		})
 
-		fmt.Printf("Downloading %s, %s from %s.\n", item.Guid,
+		fmt.Printf("Downloading file %d of %d, %s, %s from %s.\n", i+1, len(scanUrls), item.Guid,
 			polonaObject.Slug, url)
 		// fmt.Printf("Async: %v\n", imageResource.Async)
 		err := imageResource.Visit(url)
@@ -158,4 +188,5 @@ func DownloadPolona(item *strg.Item, outputFolder string) {
 		}
 	}
 
+	return nil
 }
