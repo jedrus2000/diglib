@@ -4,9 +4,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	bolt "go.etcd.io/bbolt"
-	"os"
 	"path/filepath"
+
+	badger "github.com/dgraph-io/badger/v2"
 )
 
 const (
@@ -14,24 +14,13 @@ const (
 )
 
 type Storage struct {
-	db *bolt.DB
+	db *badger.DB
 }
 
 func (storage *Storage) Open() {
 	var err error
-	dstPath := filepath.Join("database")
-	os.MkdirAll(dstPath, os.ModePerm)
-	storage.db, err = bolt.Open(filepath.Join(dstPath, "diglib.db"), 0600, nil)
-	if err != nil {
-		panic(err)
-	}
-	err = storage.db.Update(func(tx *bolt.Tx) error {
-		_, err := tx.CreateBucketIfNotExists([]byte(DEFAULT_COLLECTION_NAME))
-		if err != nil {
-			return fmt.Errorf("create : %s", err)
-		}
-		return nil
-	})
+	dstPath := filepath.Join("./database")
+	storage.db, err = badger.Open(badger.DefaultOptions(dstPath)) // bolt.Open(filepath.Join(dstPath, "diglib.db"), 0600, nil)
 	if err != nil {
 		panic(err)
 	}
@@ -45,14 +34,13 @@ func (storage *Storage) Close() {
 }
 
 func (storage *Storage) SaveItem(item *Item, overwrite bool) {
-	err := storage.db.Update(func(tx *bolt.Tx) error {
-		b := tx.Bucket([]byte(DEFAULT_COLLECTION_NAME))
-		if i := b.Get([]byte(item.Guid)); (i == nil) || (overwrite == true) {
+	err := storage.db.Update(func(txn *badger.Txn) error {
+		if i, _ := txn.Get([]byte(item.Guid)); (i == nil) || (overwrite == true) {
 			buf, err := json.Marshal(item)
 			if err != nil {
 				return err
 			}
-			err = b.Put([]byte(item.Guid), buf)
+			err = txn.Set([]byte(item.Guid), buf)
 			if err != nil {
 				return err
 			}
@@ -65,15 +53,14 @@ func (storage *Storage) SaveItem(item *Item, overwrite bool) {
 }
 
 func (storage *Storage) SaveItems(items *[]Item, overwrite bool) {
-	err := storage.db.Update(func(tx *bolt.Tx) error {
-		b := tx.Bucket([]byte(DEFAULT_COLLECTION_NAME))
+	err := storage.db.Update(func(txn *badger.Txn) error {
 		for _, item := range *items {
-			if i := b.Get([]byte(item.Guid)); (i == nil) || (overwrite == true) {
+			if i, _ := txn.Get([]byte(item.Guid)); (i == nil) || (overwrite == true) {
 				buf, err := json.Marshal(item)
 				if err != nil {
 					return err
 				}
-				err = b.Put([]byte(item.Guid), buf)
+				err = txn.Set([]byte(item.Guid), buf)
 				if err != nil {
 					return err
 				}
@@ -87,24 +74,72 @@ func (storage *Storage) SaveItems(items *[]Item, overwrite bool) {
 }
 
 func (storage *Storage) ForEach(fn func(item *Item)) {
-	err := storage.db.View(func(tx *bolt.Tx) error {
-		// Assume bucket exists and has keys
-		b := tx.Bucket([]byte(DEFAULT_COLLECTION_NAME))
-		err := b.ForEach(func(k, v []byte) error {
-			var item Item
-			err := json.Unmarshal(v, &item)
-			fn(&item)
-			return err
-		})
-		return err
+	err := storage.db.View(func(txn *badger.Txn) error {
+		opts := badger.DefaultIteratorOptions
+		opts.PrefetchSize = 10
+		it := txn.NewIterator(opts)
+		defer it.Close()
+		for it.Rewind(); it.Valid(); it.Next() {
+			v := it.Item()
+			// k := v.Key()
+			err := v.Value(func(data []byte) error {
+				var item Item
+				err := json.Unmarshal(data, &item)
+				fn(&item)
+				return err
+			})
+			if err != nil {
+				return err
+			}
+		}
+		return nil
 	})
 	if err != nil {
 		panic(err)
 	}
 }
-func (storage *Storage) Find(guid string) (Item, error) {
+
+func (storage *Storage) Read(guid string) (Item, error) {
 	var item Item
 	var err error = nil
+
+	err = storage.db.View(func(txn *badger.Txn) error {
+		i, err := txn.Get([]byte(guid))
+		if err == nil {
+			err := i.Value(func(data []byte) error {
+				return json.Unmarshal(data, &item)
+			})
+			if err != nil {
+				panic(err)
+			}
+		} else {
+			err = errors.New("item not found")
+		}
+		return err
+	})
+	return item, err
+}
+
+/*
+	storage.db.View(func(txn *badger.Txn) error {
+		it := txn.NewIterator(badger.DefaultIteratorOptions)
+		defer it.Close()
+		prefix := []byte(guid)
+		for it.Seek(prefix); it.ValidForPrefix(prefix); it.Next() {
+			item := it.Item()
+			k := item.Key()
+			err := item.Value(func(v []byte) error {
+				fmt.Printf("key=%s, value=%s\n", k, v)
+				return nil
+			})
+			if err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+
+
 	err = storage.db.View(func(tx *bolt.Tx) error {
 		c := tx.Bucket([]byte(DEFAULT_COLLECTION_NAME)).Cursor()
 		k, v := c.Seek([]byte(guid))
@@ -120,3 +155,4 @@ func (storage *Storage) Find(guid string) (Item, error) {
 	})
 	return item, err
 }
+*/

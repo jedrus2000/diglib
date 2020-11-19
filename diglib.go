@@ -61,7 +61,7 @@ digilib
 		dryRun, _ := arguments.Bool("--dry-run")
 		onlyMetadata, _ := arguments.Bool("--only-metadata")
 		if guid, err := arguments.String("--single"); err == nil {
-			if item, err := storage.Find(guid); err == nil {
+			if item, err := storage.Read(guid); err == nil {
 				if err := downloadItem(&item, outputFolder, onlyMetadata); err == nil {
 					storage.SaveItem(&item, true)
 				}
@@ -115,7 +115,7 @@ digilib
 		if err != nil {
 			panic(err)
 		}
-		if item, err := storage.Find(guid); err == nil {
+		if item, err := storage.Read(guid); err == nil {
 			jsonItem, _ := json.MarshalIndent(item, "", "  ")
 			fmt.Println(string(jsonItem))
 		} else {
