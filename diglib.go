@@ -41,7 +41,7 @@ digilib
 	// fmt.Println(arguments)
 
 	if version, _ := arguments.Bool("--version"); version == true {
-		fmt.Println("0.1")
+		fmt.Println("0.1") // tag added
 		syscall.Exit(0)
 	}
 
