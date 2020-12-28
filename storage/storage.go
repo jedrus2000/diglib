@@ -19,7 +19,7 @@ type Storage struct {
 
 func (storage *Storage) Open() {
 	var err error
-	dstPath := filepath.Join("./database")
+	dstPath := filepath.Join("database")
 	storage.db, err = badger.Open(badger.DefaultOptions(dstPath)) // bolt.Open(filepath.Join(dstPath, "diglib.db"), 0600, nil)
 	if err != nil {
 		panic(err)
