@@ -9,13 +9,10 @@ import (
 	"github.com/docopt/docopt-go"
 	"os"
 	"regexp"
+	"syscall"
 )
 
 func main() {
-	storage := &strg.Storage{}
-	storage.Open()
-	defer storage.Close()
-
 	usage := `
 digilib
 	
@@ -31,17 +28,26 @@ digilib
   	  digilib --version
 
 	Options:
-	  --output-folder=<value>		  Output folder [default: ./downloads]
-	  --page-size=<value>  			  Page size of results [default: 1000].
-      --single=<guid>				  ID (guid) of element.
-	  --dry-run						  Prints selected items for download, without downloading content.
+	  --output-folder=<value>         Output folder [default: ./downloads].
+	  --page-size=<value>             Page size of results [default: 1000].
+	  --single=<guid>                 ID (guid) of element.
+	  --dry-run                       Prints selected items for download, without downloading content.
 	  -h --help                       Show this screen.
-  	  --version                       Show version.	
+  	  -v --version                    Show version.	
 
 `
 	arguments, _ := docopt.ParseDoc(usage)
 
 	// fmt.Println(arguments)
+
+	if version, _ := arguments.Bool("--version"); version == true {
+		fmt.Println("0.1")
+		syscall.Exit(0)
+	}
+
+	storage := &strg.Storage{}
+	storage.Open()
+	defer storage.Close()
 
 	if arguments["dump"] == true {
 		filename, _ := arguments.String("<output_filename>")
