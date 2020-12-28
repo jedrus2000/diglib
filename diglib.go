@@ -1,6 +1,7 @@
 package main
 
 import (
+	"diglib/jag"
 	"diglib/polona"
 	strg "diglib/storage"
 	"encoding/json"
@@ -154,8 +155,7 @@ func downloadItem(item *strg.Item, outputFolder string, onlyMetadata bool) error
 	case "CBN Polona":
 		return polona.DownloadPolona(item, outputFolder, onlyMetadata)
 	case "Jagiellońska Biblioteka Cyfrowa":
-		fmt.Printf("Working on it, but data provider %s not supported.\n", item.DataProvider)
-		return errors.New("data provider not supported")
+		return jag.DownloadJag(item, outputFolder, onlyMetadata)
 	default:
 		fmt.Printf("Data provider %s not supported.\n", item.DataProvider)
 		return errors.New("data provider not supported")
