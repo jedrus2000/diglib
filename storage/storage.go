@@ -20,13 +20,16 @@ type Storage struct {
 func (storage *Storage) Open() {
 	var err error
 	dstPath := filepath.Join("database")
-	storage.db, err = badger.Open(badger.DefaultOptions(dstPath)) // bolt.Open(filepath.Join(dstPath, "diglib.db"), 0600, nil)
+	options := badger.DefaultOptions(dstPath)
+	options.Truncate = true
+	storage.db, err = badger.Open(options)
 	if err != nil {
 		panic(err)
 	}
 }
 
 func (storage *Storage) Close() {
+	println("Closing DB...")
 	err := storage.db.Close()
 	if err != nil {
 		fmt.Printf("Error while closing storage: %s", err)
