@@ -16,18 +16,18 @@ import (
 
 func main() {
 	usage := `
-digilib
+diglib
 	
 	Usage:
-	  digilib search [--page-size=<value>]
-	  digilib dump <output_filename>
-	  digilib download [ [--single=<guid>] | 
+	  diglib search [--page-size=<value>]
+	  diglib dump <output_filename>
+	  diglib download [ [--single=<guid>] | 
 		[ [--download-selector=<value>] [--scale-selector=<value>] [--library-selector=<value>] [--dry-run] ] ]
 		[--output-folder=<value>] [--only-metadata]
-	  digilib set-property [--single=<guid>] [--download-selector=<value>]		
-	  digilib show <item_guid>
-	  digilib -h | --help
-  	  digilib --version
+	  diglib set-property [--single=<guid>] [--download-selector=<value>]		
+	  diglib show <item_guid>
+	  diglib -h | --help
+  	  diglib --version
 
 	Options:
 	  --output-folder=<value>         Output folder [default: ./downloads].
