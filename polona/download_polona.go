@@ -3,6 +3,7 @@ package polona
 import (
 	"bytes"
 	strg "diglib/storage"
+	"diglib/tools"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -130,9 +131,15 @@ func DownloadPolona(item *strg.Item, outputFolder string, onlyMetadata bool) err
 		return nil
 	}
 
-	dstPath := filepath.Join(outputFolder, polonaObject.GetSerie())
+	serieForPath := tools.ClearPathStringForWindows(polonaObject.GetSerie())
+	dstPath := filepath.Join(outputFolder, serieForPath)
 	jsonFileNamePrefix := polonaObject.Slug + "_" + item.Guid
-	os.MkdirAll(dstPath, os.ModePerm)
+	err := os.MkdirAll(dstPath, os.ModePerm)
+	if err != nil {
+		fmt.Printf("Error while creating destination folder: %v\n", dstPath)
+		panic(err)
+	}
+
 	jsonItemBytes, _ := json.MarshalIndent(item, "", "  ")
 	f, _ := os.Create(filepath.Join(dstPath, jsonFileNamePrefix+".json"))
 	f.WriteString(string(jsonItemBytes))
@@ -165,11 +172,13 @@ func DownloadPolona(item *strg.Item, outputFolder string, onlyMetadata bool) err
 		})
 
 		imageResource.OnResponse(func(res *colly.Response) {
-			fileName := fmt.Sprintf("%s_%s_Sygn.%s_%04d%s", polonaObject.Slug, item.Guid, polonaObject.GetSygn(),
-				i, filepath.Ext(res.FileName()))
+			fileName := tools.ClearPathStringForWindows(
+				fmt.Sprintf("%s_%s_Sygn.%s_%04d%s", polonaObject.Slug, item.Guid, polonaObject.GetSygn(),
+					i, filepath.Ext(res.FileName())))
 			fileNameWithPath := filepath.Join(dstPath, fileName)
 			err := res.Save(fileNameWithPath)
 			if err != nil {
+				fmt.Printf("Error while saving file: %v\n", fileNameWithPath)
 				panic(err)
 			}
 			item.Download = fileNameWithPath
