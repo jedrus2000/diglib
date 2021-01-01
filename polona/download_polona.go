@@ -2,6 +2,7 @@ package polona
 
 import (
 	"bytes"
+	"diglib/generic_library"
 	strg "diglib/storage"
 	"diglib/tools"
 	"encoding/json"
@@ -99,7 +100,9 @@ func DownloadPolona(item *strg.Item, outputFolder string, onlyMetadata bool) err
 	item.LastUpdateDate = time.Now().Format("2006-01-02 15:04:05")
 
 	page := colly.NewCollector()
+	generic_library.SetDefaultDownloadSettings(page)
 	jsonResource := colly.NewCollector()
+	generic_library.SetDefaultDownloadSettings(jsonResource)
 
 	page.OnResponse(func(res *colly.Response) {
 		resourceId = strings.Split(res.Request.URL.Path, ",")[1]
@@ -151,10 +154,7 @@ func DownloadPolona(item *strg.Item, outputFolder string, onlyMetadata bool) err
 	for i, url := range scanUrls {
 		retry := 0
 		imageResource := colly.NewCollector()
-		imageResource.MaxBodySize = 10 * 1024 * 1024 * 1024
-		imageResource.SetRequestTimeout(60 * time.Second)
-		imageResource.AllowURLRevisit = true
-
+		generic_library.SetDefaultDownloadSettings(imageResource)
 		imageResource.OnError(func(res *colly.Response, err error) {
 			if (retry < 3) && ((res.StatusCode < 400) || (res.StatusCode > 499)) {
 				retry++
