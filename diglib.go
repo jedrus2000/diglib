@@ -20,10 +20,10 @@ diglib
 	
 	Usage:
 	  diglib search [--page-size=<value>]
-	  diglib dump <output_filename>
-	  diglib download [ [--single=<guid>] | 
-		[ [--download-selector=<value>] [--scale-selector=<value>] [--library-selector=<value>] [--dry-run] ] ]
-		[--output-folder=<value>] [--only-metadata]
+	  diglib dump <output_filename> 
+	  diglib download [--item-selector=<item_guid>] [--download-selector=<value>] [--scale-selector=<value>] 
+			[--library-selector=<value>] 
+			[--dry-run] [--output-folder=<value>] [--only-metadata]
 	  diglib set-property [--single=<guid>] [--download-selector=<value>]		
 	  diglib show <item_guid>
 	  diglib -h | --help
@@ -79,56 +79,55 @@ diglib
 		}
 		dryRun, _ := arguments.Bool("--dry-run")
 		onlyMetadata, _ := arguments.Bool("--only-metadata")
-		if guid, err := arguments.String("--single"); err == nil {
-			if item, err := storage.Read(guid); err == nil {
-				if err := downloadItem(&item, outputFolder, onlyMetadata); err == nil {
-					storage.SaveItem(&item, true)
-				}
-			} else {
-				fmt.Println(err)
-			}
-		} else {
-			var downloadSelectorRe, librarySelectorRe *regexp.Regexp
-			downloadSelector, err := arguments.String("--download-selector")
-			if err != nil {
-				downloadSelector = ""
-			}
-			downloadSelectorRe = regexp.MustCompile(downloadSelector)
+		var downloadSelectorRe, librarySelectorRe, itemSelectorRe *regexp.Regexp
 
-			scaleSelector, err := arguments.String("--scale-selector")
-			if err != nil {
-				scaleSelector = ""
-			}
-
-			librarySelector, err := arguments.String("--library-selector")
-			if err != nil {
-				librarySelector = ""
-			}
-			librarySelectorRe = regexp.MustCompile(librarySelector)
-
-			counter := 0
-			missingProviderMetadataCounter := 0
-			dot := false
-			storage.ForEach(func(item *strg.Item) {
-				if downloadSelectorRe.MatchString(item.Download) && librarySelectorRe.MatchString(item.DataProvider) &&
-					matchScale(item, scaleSelector, &missingProviderMetadataCounter) {
-					if dot == true && dryRun == false {
-						println("")
-						dot = false
-					}
-					if dryRun == true {
-						fmt.Printf("%s, %s %s \n", item.Guid, item.Title, item.DataProvider)
-					} else if err := downloadItem(item, outputFolder, onlyMetadata); err == nil {
-						storage.SaveItem(item, true)
-					}
-					counter++
-				} else if dryRun == false {
-					print(".")
-					dot = true
-				}
-			})
-			fmt.Printf("%d items. %d have missing data provider metadata that can be useful with provided selectors.\n", counter, missingProviderMetadataCounter)
+		itemSelector, err := arguments.String("--item-selector")
+		if err != nil {
+			itemSelector = ""
 		}
+		itemSelectorRe = regexp.MustCompile(itemSelector)
+
+		downloadSelector, err := arguments.String("--download-selector")
+		if err != nil {
+			downloadSelector = ""
+		}
+		downloadSelectorRe = regexp.MustCompile(downloadSelector)
+
+		scaleSelector, err := arguments.String("--scale-selector")
+		if err != nil {
+			scaleSelector = ""
+		}
+
+		librarySelector, err := arguments.String("--library-selector")
+		if err != nil {
+			librarySelector = ""
+		}
+		librarySelectorRe = regexp.MustCompile(librarySelector)
+
+		counter := 0
+		missingProviderMetadataCounter := 0
+		dot := false
+		storage.ForEach(func(item *strg.Item) {
+			if downloadSelectorRe.MatchString(item.Download) &&
+				librarySelectorRe.MatchString(item.DataProvider) &&
+				itemSelectorRe.MatchString(item.Guid) &&
+				matchScale(item, scaleSelector, &missingProviderMetadataCounter) {
+				if dot == true && dryRun == false {
+					println("")
+					dot = false
+				}
+				if dryRun == true {
+					fmt.Printf("%s, %s %s \n", item.Guid, item.Title, item.DataProvider)
+				} else if err := downloadItem(item, outputFolder, onlyMetadata); err == nil {
+					storage.SaveItem(item, true)
+				}
+				counter++
+			} else if dryRun == false {
+				print(".")
+				dot = true
+			}
+		})
+		fmt.Printf("%d items. %d have missing data provider metadata that can be useful with provided selectors.\n", counter, missingProviderMetadataCounter)
 	} else if arguments["show"] == true {
 		guid, err := arguments.String("<item_guid>")
 		if err != nil {
