@@ -151,8 +151,7 @@ func selectItemsBySelectors(arguments *docopt.Opts, storage *strg.Storage, proce
 			foundCounter++
 			processItem(item)
 		} else {
-			print(string(`.+*#`[missingCnt%4]))
-			fmt.Fprint(os.Stdout, "\r \r")
+			fmt.Fprintf(os.Stdout, "\r%s\r", string(`-\|/`[missingCnt%4]))
 			missingCnt++
 		}
 	})
