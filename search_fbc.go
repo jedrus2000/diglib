@@ -72,16 +72,13 @@ func Search(storage *strg.Storage, pageSize int) {
 }
 
 func Dump(storage *strg.Storage, ss *strg.Spreadsheet) {
+	ss.SetDefaultHeader()
+
 	ssRowId := 2
-	ss.SetHeader([]string{"Download", "LastUpdateDate", "Title", "Link", "Guid", "Contributor", "Subject", "Publisher", "Description", "Date",
-		"Type", "Format", "Source", "Language", "Rights", "DataProvider", "DataProviderMetaJSON"})
 
 	storage.ForEach(
 		func(item *strg.Item) {
-			ss.SetData(ssRowId, []interface{}{item.Download, item.LastUpdateDate, item.Title, item.Link,
-				item.Guid, item.Contributor, item.Subject,
-				item.Publisher, item.Description, item.Date, item.Type, item.Format, item.Source, item.Language,
-				item.Rights, item.DataProvider, item.DataProviderMetaJSON})
+			ss.SetDefaultData(ssRowId, item)
 			ssRowId++
 		})
 	// fmt.Printf("%+v \n", item)

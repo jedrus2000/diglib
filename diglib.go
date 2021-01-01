@@ -20,19 +20,18 @@ diglib
 	
 	Usage:
 	  diglib search [--page-size=<value>]
-	  diglib dump <output_filename> 
+	  diglib show [--item-selector=<item_guid>] [--download-selector=<value>] [--scale-selector=<value>] 
+			[--library-selector=<value>] [--output-excel-filename=<excel_filename>]
 	  diglib download [--item-selector=<item_guid>] [--download-selector=<value>] [--scale-selector=<value>] 
 			[--library-selector=<value>] 
 			[--dry-run] [--output-folder=<value>] [--only-metadata]
 	  diglib set-property [--single=<guid>] [--download-selector=<value>]		
-	  diglib show <item_guid>
 	  diglib -h | --help
   	  diglib --version
 
 	Options:
 	  --output-folder=<value>         Output folder [default: ./downloads].
 	  --page-size=<value>             Page size of results [default: 1000].
-	  --single=<guid>                 ID (guid) of element.
 	  --dry-run                       Prints selected items for download, without downloading content.
 	  -h --help                       Show this screen.
   	  -v --version                    Show version.	
@@ -62,12 +61,24 @@ diglib
 	storage.Open()
 	defer storage.Close()
 
-	if arguments["dump"] == true {
-		filename, _ := arguments.String("<output_filename>")
-		ss := &strg.Spreadsheet{}
-		ss.Open(filename)
-		defer ss.Close()
-		Dump(storage, ss)
+	if arguments["show"] == true {
+		outputExcelFilename, _ := arguments.String("--output-excel-filename")
+		if outputExcelFilename != "" {
+			ss := &strg.Spreadsheet{}
+			ss.Open(outputExcelFilename)
+			ss.SetDefaultHeader()
+			defer ss.Close()
+			rowId := 2
+			selectItemsBySelectors(&arguments, storage, func(item *strg.Item) {
+				ss.SetDefaultData(rowId, item)
+				rowId++
+			})
+		} else {
+			selectItemsBySelectors(&arguments, storage, func(item *strg.Item) {
+				jsonItem, _ := json.MarshalIndent(item, "", "  ")
+				fmt.Println(string(jsonItem))
+			})
+		}
 	} else if arguments["search"] == true {
 		pageSize, _ := arguments.Int("--page-size")
 		Search(storage, pageSize)
@@ -79,56 +90,16 @@ diglib
 		}
 		dryRun, _ := arguments.Bool("--dry-run")
 		onlyMetadata, _ := arguments.Bool("--only-metadata")
-		var downloadSelectorRe, librarySelectorRe, itemSelectorRe *regexp.Regexp
 
-		itemSelector, err := arguments.String("--item-selector")
-		if err != nil {
-			itemSelector = ""
-		}
-		itemSelectorRe = regexp.MustCompile(itemSelector)
-
-		downloadSelector, err := arguments.String("--download-selector")
-		if err != nil {
-			downloadSelector = ""
-		}
-		downloadSelectorRe = regexp.MustCompile(downloadSelector)
-
-		scaleSelector, err := arguments.String("--scale-selector")
-		if err != nil {
-			scaleSelector = ""
-		}
-
-		librarySelector, err := arguments.String("--library-selector")
-		if err != nil {
-			librarySelector = ""
-		}
-		librarySelectorRe = regexp.MustCompile(librarySelector)
-
-		counter := 0
-		missingProviderMetadataCounter := 0
-		dot := false
-		storage.ForEach(func(item *strg.Item) {
-			if downloadSelectorRe.MatchString(item.Download) &&
-				librarySelectorRe.MatchString(item.DataProvider) &&
-				itemSelectorRe.MatchString(item.Guid) &&
-				matchScale(item, scaleSelector, &missingProviderMetadataCounter) {
-				if dot == true && dryRun == false {
-					println("")
-					dot = false
-				}
-				if dryRun == true {
-					fmt.Printf("%s, %s %s \n", item.Guid, item.Title, item.DataProvider)
-				} else if err := downloadItem(item, outputFolder, onlyMetadata); err == nil {
-					storage.SaveItem(item, true)
-				}
-				counter++
-			} else if dryRun == false {
-				print(".")
-				dot = true
+		selectItemsBySelectors(&arguments, storage, func(item *strg.Item) {
+			if dryRun == true {
+				fmt.Printf("%s, %s %s \n", item.Guid, item.Title, item.DataProvider)
+			} else if err := downloadItem(item, outputFolder, onlyMetadata); err == nil {
+				storage.SaveItem(item, true)
 			}
 		})
-		fmt.Printf("%d items. %d have missing data provider metadata that can be useful with provided selectors.\n", counter, missingProviderMetadataCounter)
-	} else if arguments["show"] == true {
+
+	} /* else if arguments["show"] == true {
 		guid, err := arguments.String("<item_guid>")
 		if err != nil {
 			panic(err)
@@ -139,7 +110,53 @@ diglib
 		} else {
 			fmt.Println(err)
 		}
+	}*/
+}
+
+func selectItemsBySelectors(arguments *docopt.Opts, storage *strg.Storage, processItem func(item *strg.Item)) {
+	var downloadSelectorRe, librarySelectorRe, itemSelectorRe *regexp.Regexp
+
+	itemSelector, err := arguments.String("--item-selector")
+	if err != nil {
+		itemSelector = ""
 	}
+	itemSelectorRe = regexp.MustCompile(itemSelector)
+
+	downloadSelector, err := arguments.String("--download-selector")
+	if err != nil {
+		downloadSelector = ""
+	}
+	downloadSelectorRe = regexp.MustCompile(downloadSelector)
+
+	scaleSelector, err := arguments.String("--scale-selector")
+	if err != nil {
+		scaleSelector = ""
+	}
+
+	librarySelector, err := arguments.String("--library-selector")
+	if err != nil {
+		librarySelector = ""
+	}
+	librarySelectorRe = regexp.MustCompile(librarySelector)
+
+	foundCounter := 0
+	missingCnt := 0
+	missingProviderMetadataCounter := 0
+	storage.ForEach(func(item *strg.Item) {
+		if downloadSelectorRe.MatchString(item.Download) &&
+			librarySelectorRe.MatchString(item.DataProvider) &&
+			itemSelectorRe.MatchString(item.Guid) &&
+			matchScale(item, scaleSelector, &missingProviderMetadataCounter) {
+			fmt.Fprint(os.Stdout, "\r \r")
+			foundCounter++
+			processItem(item)
+		} else {
+			print(string(`.+*#`[missingCnt%4]))
+			fmt.Fprint(os.Stdout, "\r \r")
+			missingCnt++
+		}
+	})
+	fmt.Printf("Found %d items. %d have missing data provider metadata that can be useful with provided selectors.\n", foundCounter, missingProviderMetadataCounter)
 }
 
 func matchScale(item *strg.Item, scaleSelector string, missingProviderMetadata *int) bool {

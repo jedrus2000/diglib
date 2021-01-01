@@ -30,10 +30,22 @@ func (ss *Spreadsheet) SetHeader(header []string) {
 	}
 }
 
+func (ss *Spreadsheet) SetDefaultHeader() {
+	ss.SetHeader([]string{"Download", "LastUpdateDate", "Title", "Link", "Guid", "Contributor", "Subject", "Publisher", "Description", "Date",
+		"Type", "Format", "Source", "Language", "Rights", "DataProvider", "DataProviderMetaJSON"})
+}
+
 func (ss *Spreadsheet) SetData(rowId int, rowData []interface{}) {
 	for i, cellValue := range rowData {
 		ss.file.SetCellValue(DEFAULT_SHEET, string(rune(65+i))+fmt.Sprintf("%d", rowId), cellValue)
 	}
+}
+
+func (ss *Spreadsheet) SetDefaultData(rowId int, item *Item) {
+	ss.SetData(rowId, []interface{}{item.Download, item.LastUpdateDate, item.Title, item.Link,
+		item.Guid, item.Contributor, item.Subject,
+		item.Publisher, item.Description, item.Date, item.Type, item.Format, item.Source, item.Language,
+		item.Rights, item.DataProvider, item.DataProviderMetaJSON})
 }
 
 func (ss *Spreadsheet) Close() {
