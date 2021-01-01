@@ -109,9 +109,8 @@ func DownloadPolona(item *strg.Item, outputFolder string, onlyMetadata bool) err
 		jsonResource.Visit("https://polona.pl/api/entities/" + resourceId)
 	})
 
-	var scanUrls []string
-	var prettyJSON bytes.Buffer
 	jsonResource.OnResponse(func(res *colly.Response) {
+		var prettyJSON bytes.Buffer
 		err := json.Unmarshal(res.Body, &polonaObject)
 		if err != nil {
 			panic(err)
@@ -119,11 +118,6 @@ func DownloadPolona(item *strg.Item, outputFolder string, onlyMetadata bool) err
 		// fmt.Printf("%+v\n", polonaObject) // res.Body[:])
 		json.Indent(&prettyJSON, res.Body, "", "  ")
 		item.DataProviderMetaJSON = string(prettyJSON.Bytes())
-		for _, scan := range polonaObject.Scans {
-			if len(scan.Resources) > 0 {
-				scanUrls = append(scanUrls, scan.Resources[0].Url)
-			}
-		}
 	})
 	// fmt.Printf("%s", "https://polona.pl/api/entities/" + resourceId)
 
@@ -132,6 +126,21 @@ func DownloadPolona(item *strg.Item, outputFolder string, onlyMetadata bool) err
 	if onlyMetadata == true {
 		fmt.Printf("Metadata downloaded for %s, %s\n", item.Guid, polonaObject.Slug)
 		return nil
+	}
+
+	if polonaObject.Id == "" {
+		fmt.Printf("There was error downloading CBN Polona metadata. Using attached...\n")
+		err := json.Unmarshal([]byte(item.DataProviderMetaJSON), &polonaObject)
+		if err != nil {
+			panic(err)
+		}
+	}
+
+	var scanUrls []string
+	for _, scan := range polonaObject.Scans {
+		if len(scan.Resources) > 0 {
+			scanUrls = append(scanUrls, scan.Resources[0].Url)
+		}
 	}
 
 	serieForPath := tools.ClearPathStringForWindows(polonaObject.GetSerie())
@@ -148,7 +157,7 @@ func DownloadPolona(item *strg.Item, outputFolder string, onlyMetadata bool) err
 	f.WriteString(string(jsonItemBytes))
 	f.Close()
 	f, _ = os.Create(filepath.Join(dstPath, jsonFileNamePrefix+".polona.json"))
-	f.WriteString(string(prettyJSON.Bytes()))
+	f.WriteString(item.DataProviderMetaJSON)
 	f.Close()
 
 	for i, url := range scanUrls {
