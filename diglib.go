@@ -116,27 +116,15 @@ diglib
 func selectItemsBySelectors(arguments *docopt.Opts, storage *strg.Storage, processItem func(item *strg.Item)) {
 	var downloadSelectorRe, librarySelectorRe, itemSelectorRe *regexp.Regexp
 
-	itemSelector, err := arguments.String("--item-selector")
-	if err != nil {
-		itemSelector = ""
-	}
+	itemSelector, _ := arguments.String("--item-selector")
 	itemSelectorRe = regexp.MustCompile(itemSelector)
 
-	downloadSelector, err := arguments.String("--download-selector")
-	if err != nil {
-		downloadSelector = ""
-	}
+	downloadSelector, _ := arguments.String("--download-selector")
 	downloadSelectorRe = regexp.MustCompile(downloadSelector)
 
-	scaleSelector, err := arguments.String("--scale-selector")
-	if err != nil {
-		scaleSelector = ""
-	}
+	scaleSelector, _ := arguments.String("--scale-selector")
 
-	librarySelector, err := arguments.String("--library-selector")
-	if err != nil {
-		librarySelector = ""
-	}
+	librarySelector, _ := arguments.String("--library-selector")
 	librarySelectorRe = regexp.MustCompile(librarySelector)
 
 	foundCounter := 0
