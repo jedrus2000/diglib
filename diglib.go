@@ -100,18 +100,7 @@ diglib
 			}
 		})
 
-	} /* else if arguments["show"] == true {
-		guid, err := arguments.String("<item_guid>")
-		if err != nil {
-			panic(err)
-		}
-		if item, err := storage.Read(guid); err == nil {
-			jsonItem, _ := json.MarshalIndent(item, "", "  ")
-			fmt.Println(string(jsonItem))
-		} else {
-			fmt.Println(err)
-		}
-	}*/
+	}
 }
 
 func selectItemsBySelectors(arguments *docopt.Opts, storage *strg.Storage, processItem func(item *strg.Item)) {
