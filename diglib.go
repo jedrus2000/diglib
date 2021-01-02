@@ -130,7 +130,8 @@ func selectItemsBySelectors(arguments *docopt.Opts, storage *strg.Storage, proce
 	foundCounter := 0
 	missingCnt := 0
 	missingProviderMetadataCounter := 0
-	storage.ForEach(func(item *strg.Item) {
+
+	onItem := func(item *strg.Item) {
 		if downloadSelectorRe.MatchString(item.Download) &&
 			librarySelectorRe.MatchString(item.DataProvider) &&
 			itemSelectorRe.MatchString(item.Guid) &&
@@ -142,7 +143,15 @@ func selectItemsBySelectors(arguments *docopt.Opts, storage *strg.Storage, proce
 			fmt.Fprintf(os.Stdout, "\r%s\r", string(`-\|/`[missingCnt%4]))
 			missingCnt++
 		}
-	})
+	}
+
+	singleItem, err := storage.Read(itemSelector)
+	if err == nil {
+		onItem(&singleItem)
+	} else {
+		storage.ForEach(onItem)
+	}
+
 	fmt.Printf("Found %d items. %d have missing data provider metadata that can be useful with provided selectors.\n", foundCounter, missingProviderMetadataCounter)
 }
 
