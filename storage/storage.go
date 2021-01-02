@@ -22,6 +22,7 @@ func (storage *Storage) Open() {
 	dstPath := filepath.Join("database")
 	options := badger.DefaultOptions(dstPath)
 	options.Truncate = true
+	options.Logger = nil
 	storage.db, err = badger.Open(options)
 	if err != nil {
 		panic(err)
