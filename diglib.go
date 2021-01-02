@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/signal"
 	"regexp"
+	"strings"
 	"syscall"
 )
 
@@ -21,9 +22,9 @@ diglib
 	Usage:
 	  diglib search [--page-size=<value>]
 	  diglib show [--item-selector=<item_guid>] [--download-selector=<value>] [--scale-selector=<value>] 
-			[--library-selector=<value>] [--output-excel-filename=<excel_filename>]
+			[--library-selector=<value>] [--find-everywhere-selector=<value>] [--output-excel-filename=<excel_filename>]
 	  diglib download [--item-selector=<item_guid>] [--download-selector=<value>] [--scale-selector=<value>] 
-			[--library-selector=<value>] 
+			[--library-selector=<value>] [--find-everywhere-selector=<value>]
 			[--dry-run] [--output-folder=<value>] [--only-metadata]
 	  diglib set-property [--single=<guid>] [--download-selector=<value>]		
 	  diglib -h | --help
@@ -114,7 +115,10 @@ diglib
 }
 
 func selectItemsBySelectors(arguments *docopt.Opts, storage *strg.Storage, processItem func(item *strg.Item)) {
-	var downloadSelectorRe, librarySelectorRe, itemSelectorRe *regexp.Regexp
+	var downloadSelectorRe, librarySelectorRe, itemSelectorRe, findEverywhereSelectorRe *regexp.Regexp
+
+	findEverywhereSelector, _ := arguments.String("--find-everywhere-selector")
+	findEverywhereSelectorRe = regexp.MustCompile(findEverywhereSelector)
 
 	itemSelector, _ := arguments.String("--item-selector")
 	itemSelectorRe = regexp.MustCompile(itemSelector)
@@ -135,6 +139,7 @@ func selectItemsBySelectors(arguments *docopt.Opts, storage *strg.Storage, proce
 		if downloadSelectorRe.MatchString(item.Download) &&
 			librarySelectorRe.MatchString(item.DataProvider) &&
 			itemSelectorRe.MatchString(item.Guid) &&
+			matchAnyField(item, findEverywhereSelectorRe) &&
 			matchScale(item, scaleSelector, &missingProviderMetadataCounter) {
 			fmt.Fprint(os.Stdout, "\r \r")
 			foundCounter++
@@ -178,6 +183,22 @@ func matchScale(item *strg.Item, scaleSelector string, missingProviderMetadata *
 
 	scaleSelectorRe := regexp.MustCompile(scaleSelector)
 	return scaleSelectorRe.MatchString(scale)
+}
+
+func matchAnyField(item *strg.Item, findEverywhereSelectorRe *regexp.Regexp) bool {
+	if findEverywhereSelectorRe.String() == "" {
+		return true
+	}
+	return findEverywhereSelectorRe.MatchString(item.DataProviderMetaJSON) ||
+		findEverywhereSelectorRe.MatchString(item.Description) ||
+		findEverywhereSelectorRe.MatchString(item.Contributor) ||
+		findEverywhereSelectorRe.MatchString(item.Subject) ||
+		findEverywhereSelectorRe.MatchString(strings.Join(item.Title, "")) ||
+		findEverywhereSelectorRe.MatchString(item.Format) ||
+		findEverywhereSelectorRe.MatchString(item.Publisher) ||
+		findEverywhereSelectorRe.MatchString(item.Rights) ||
+		findEverywhereSelectorRe.MatchString(item.Source) ||
+		findEverywhereSelectorRe.MatchString(strings.Join(item.Type, ""))
 }
 
 func downloadItem(item *strg.Item, outputFolder string, onlyMetadata bool) error {
