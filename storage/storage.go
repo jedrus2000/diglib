@@ -55,7 +55,8 @@ func (storage *Storage) SaveItem(item *Item, overwrite bool) {
 	}
 }
 
-func (storage *Storage) SaveItems(items *[]Item, overwrite bool) {
+func (storage *Storage) SaveItems(items *[]Item, overwrite bool) int {
+	saved := 0
 	err := storage.db.Update(func(txn *badger.Txn) error {
 		for _, item := range *items {
 			if i, _ := txn.Get([]byte(item.Guid)); (i == nil) || (overwrite == true) {
@@ -67,6 +68,7 @@ func (storage *Storage) SaveItems(items *[]Item, overwrite bool) {
 				if err != nil {
 					return err
 				}
+				saved++
 			}
 		}
 		return nil
@@ -74,6 +76,7 @@ func (storage *Storage) SaveItems(items *[]Item, overwrite bool) {
 	if err != nil {
 		panic(err)
 	}
+	return saved
 }
 
 func (storage *Storage) ForEach(fn func(item *Item)) {

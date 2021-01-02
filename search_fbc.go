@@ -10,6 +10,7 @@ import (
 )
 
 func Search(storage *strg.Storage, pageSize int) {
+	saved := 0
 	currentDateTimeString := time.Now().Format("2006-01-02 15:04:05")
 	startPage := 1
 	// http://fbc.pionier.net.pl/opensearch/search?count=1000&startIndex=1&searchTerms=dc_type%3A(mapa)%20OR%20dc_description%3A(mapa)
@@ -40,7 +41,7 @@ func Search(storage *strg.Storage, pageSize int) {
 			reduceDuplicateStrings(&item.Title)
 			reduceDuplicateStrings(&item.Type)
 		}
-		storage.SaveItems(&v.Channels[0].Items, false)
+		saved += storage.SaveItems(&v.Channels[0].Items, false)
 
 		if v.Channels[0].TotalResults > 0 {
 			totalResults := v.Channels[0].TotalResults
@@ -69,6 +70,8 @@ func Search(storage *strg.Storage, pageSize int) {
 	})
 
 	c.Visit(url())
+
+	fmt.Printf("Saved %v new items, with date-time: %v.\n", saved, currentDateTimeString)
 }
 
 func Dump(storage *strg.Storage, ss *strg.Spreadsheet) {
