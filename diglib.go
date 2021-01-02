@@ -61,6 +61,7 @@ diglib
 
 	storage.Open()
 	defer storage.Close()
+	fmt.Printf("DB has %d items.\n", storage.Count())
 
 	if arguments["show"] == true {
 		outputExcelFilename, _ := arguments.String("--output-excel-filename")

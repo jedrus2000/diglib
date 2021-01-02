@@ -127,6 +127,14 @@ func (storage *Storage) Read(guid string) (Item, error) {
 	return item, err
 }
 
+func (storage *Storage) Count() uint64 {
+	var cnt uint64 = 0
+	for _, t := range storage.db.Tables(true) {
+		cnt += t.KeyCount
+	}
+	return cnt
+}
+
 /*
 	storage.db.View(func(txn *badger.Txn) error {
 		it := txn.NewIterator(badger.DefaultIteratorOptions)
