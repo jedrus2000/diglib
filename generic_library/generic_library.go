@@ -7,6 +7,6 @@ import (
 
 func SetDefaultDownloadSettings(collector *colly.Collector) {
 	collector.MaxBodySize = 10 * 1024 * 1024 * 1024
-	collector.SetRequestTimeout(60 * time.Second)
+	collector.SetRequestTimeout(600 * time.Second)
 	collector.AllowURLRevisit = true
 }
