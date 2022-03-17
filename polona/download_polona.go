@@ -182,8 +182,8 @@ func DownloadPolona(item *strg.Item, outputFolder string, onlyMetadata bool) err
 
 		imageResource.OnResponse(func(res *colly.Response) {
 			fileName := tools.ClearPathStringForWindows(
-				fmt.Sprintf("%s_%s_Sygn.%s_%04d%s", polonaObject.Slug, item.Guid, polonaObject.GetSygn(),
-					i, filepath.Ext(res.FileName())))
+				fmt.Sprintf("%s_%s_Sygn.%s", polonaObject.Slug, item.Guid, polonaObject.GetSygn()))
+			fileName = fmt.Sprintf("%s_%04d%s", fileName, i, filepath.Ext(res.FileName()))
 			fileNameWithPath := filepath.Join(dstPath, fileName)
 			err := res.Save(fileNameWithPath)
 			if err != nil {
