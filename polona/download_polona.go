@@ -132,6 +132,8 @@ func DownloadPolona(item *strg.Item, outputFolder string, onlyMetadata bool) err
 		fmt.Printf("There was error downloading CBN Polona metadata. Using attached...\n")
 		err := json.Unmarshal([]byte(item.DataProviderMetaJSON), &polonaObject)
 		if err != nil {
+			fmt.Printf("Panic error while trying to use attached JSON. Item guid: %s, Polona resource id: %s,\n JSON: %s\n",
+				item.Guid, resourceId, item.DataProviderMetaJSON)
 			panic(err)
 		}
 	}
