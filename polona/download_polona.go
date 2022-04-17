@@ -134,7 +134,8 @@ func DownloadPolona(item *strg.Item, outputFolder string, onlyMetadata bool) err
 		if err != nil {
 			fmt.Printf("Panic error while trying to use attached JSON. Item guid: %s, Polona resource id: %s,\n JSON: %s\n",
 				item.Guid, resourceId, item.DataProviderMetaJSON)
-			panic(err)
+			fmt.Printf("Skipping this item.\n")
+			return nil
 		}
 	}
 
